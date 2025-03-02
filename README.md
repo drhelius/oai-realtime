@@ -7,7 +7,7 @@ This repository contains tools for generating real-time text and audio responses
 - Real-time text-to-speech generation using Azure OpenAI
 - Text transcript alongside audio output
 - Command-line interface (script.py)
-- Interactive Streamlit web interface (streamlit.py)
+- Interactive Streamlit web interface (app.py)
 - Audio playback and download capabilities in the web interface
 
 ## Prerequisites
@@ -58,7 +58,7 @@ This will:
 For an interactive experience, run:
 
 ```bash
-streamlit run streamlit.py
+streamlit run app.py
 ```
 
 This will open a web interface where you can:

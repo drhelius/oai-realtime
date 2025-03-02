@@ -9,7 +9,7 @@ import wave
 # Third-party imports
 import numpy as np
 import sounddevice as sd
-import streamlit as st
+import app as st
 from azure.core.credentials import AzureKeyCredential
 
 from rtclient import (
