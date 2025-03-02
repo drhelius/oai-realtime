@@ -1,26 +1,27 @@
-import base64
+# Standard library imports
 import asyncio
-import os
-import wave
+import base64
 import datetime
+import os
 import tempfile
-import streamlit as st
-import sounddevice as sd
+import wave
+
+# Third-party imports
 import numpy as np
+import sounddevice as sd
+import streamlit as st
 from azure.core.credentials import AzureKeyCredential
+
 from rtclient import (
     ResponseCreateMessage,
     RTLowLevelClient,
     ResponseCreateParams
 )
-from dotenv import load_dotenv
 
-load_dotenv()
+# Local imports
+import models_config
 
-api_key = os.environ["AZURE_OPENAI_API_KEY"]    
-endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
-deployment = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
-
+# Constants
 SAMPLE_RATE = 24000
 CHANNELS = 1
 DTYPE = np.int16
@@ -95,20 +96,29 @@ def create_audio_file(audio_buffer):
 
     return save_to_wav_file(audio_buffer, temp_filename)
 
-async def generate_response(prompt):
+async def generate_response(prompt, model_id):
     """Generate a text and audio response from the LLM based on the user prompt."""
     text_placeholder = st.empty()
+    
+    try:
+        env_keys = models_config.get_env_variable_keys(model_id)
+        endpoint = os.environ[env_keys["endpoint"]]
+        api_key = os.environ[env_keys["api_key"]]
+        deployment = os.environ[env_keys["deployment_name"]]
+    except (ValueError, KeyError) as e:
+        st.error(f"Model configuration error: {e}. Please check models in .env file.")
+        return None, None
 
     async with RTLowLevelClient(
         url=endpoint,
         azure_deployment=deployment,
-        key_credential=AzureKeyCredential(api_key) 
+        key_credential=AzureKeyCredential(api_key)
     ) as client:
         await client.send(
             ResponseCreateMessage(
                 response=ResponseCreateParams(
-                    modalities={"audio", "text"}, 
-                    instructions=prompt
+                    modalities={"audio", "text"},
+                    instructions=prompt,                    
                 )
             )
         )
@@ -142,10 +152,28 @@ def display_audio_response(audio_file):
     except Exception as e:
         st.warning(f"Could not remove temporary file: {e}")
 
+def create_sidebar():
+    """Create the sidebar with model selection."""
+    st.sidebar.title("Model Settings")
+    
+    model_options = models_config.get_model_names()
+    
+    if not model_options:
+        st.sidebar.error("No models configured. Please add model configurations to your .env file.")
+        st.stop()  # Stop the app if no models are configured
+    
+    # Display as (value, label) pairs
+    model_dict = dict(model_options)
+    model_names = list(model_dict.values())
+    selected_name = st.sidebar.selectbox("Select Model", model_names)
+    
+    # Find the model_id that corresponds to the selected name
+    model_id = next(k for k, v in model_dict.items() if v == selected_name)
+    
+    return model_id
+
 def create_ui():
     """Create the Streamlit user interface."""
-    st.set_page_config(page_title="AI Speech Generation", page_icon="🎙️")
-
     st.title("🎙️ AI Speech Generator")
     st.markdown("""
     Enter your prompt below and the AI will generate a spoken response.
@@ -158,6 +186,15 @@ def create_ui():
 
 def app():
     """Main Streamlit application."""
+
+    # Page configuration
+    st.set_page_config(
+        page_title="AI Speech Generation",
+        page_icon="🎙️",
+        layout="wide",
+    )
+
+    model_id = create_sidebar()
     user_input = create_ui()
 
     if st.button("Generate Response"):
@@ -166,7 +203,11 @@ def app():
             return
 
         with st.spinner("Generating response..."):
-            transcript, audio_file = asyncio.run(generate_response(user_input))
+            transcript, audio_file = asyncio.run(generate_response(user_input, model_id))
+            
+        if transcript is None:
+            st.error("Failed to generate response. Please check model configuration.")
+            return
 
         st.success("Response generated!")
 
