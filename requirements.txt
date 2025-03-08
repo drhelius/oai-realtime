@@ -1,6 +1,6 @@
 streamlit
 python-dotenv
 azure-core
-rtclient
 sounddevice
 numpy
+https://github.com/Azure-Samples/aoai-realtime-audio-sdk/releases/download/py%2Fv0.5.3/rtclient-0.5.3.tar.gz
